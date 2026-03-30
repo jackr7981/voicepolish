@@ -1,4 +1,4 @@
-import { PromptProfile } from "../types";
+import { PromptProfile, SUPPORTED_LANGUAGES } from "../types";
 
 type FormatAs = "auto" | "paragraph" | "bullets" | "numbered";
 
@@ -8,9 +8,11 @@ interface SettingsPanelProps {
   setActiveProfileId: (id: string | null) => void;
   formatAs: FormatAs;
   setFormatAs: (f: FormatAs) => void;
+  language: string;
+  setLanguage: (lang: string) => void;
 }
 
-export function SettingsPanel({ profiles, activeProfileId, setActiveProfileId, formatAs, setFormatAs }: SettingsPanelProps) {
+export function SettingsPanel({ profiles, activeProfileId, setActiveProfileId, formatAs, setFormatAs, language, setLanguage }: SettingsPanelProps) {
   return (
     <div className="flex gap-4 flex-wrap w-full justify-center">
       <div>
@@ -23,6 +25,20 @@ export function SettingsPanel({ profiles, activeProfileId, setActiveProfileId, f
           {profiles.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name} {p.is_default ? "(default)" : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400 block mb-1">Language</label>
+        <select
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          className="bg-slate-700 text-sm rounded px-3 py-2 text-white"
+        >
+          {SUPPORTED_LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.native}
             </option>
           ))}
         </select>

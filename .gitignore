@@ -26,3 +26,4 @@ frontend/dist/
 
 # Claude
 .claude/
+.vercel

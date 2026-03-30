@@ -50,7 +50,6 @@ export default async function handler(req: Request) {
     );
   }
 
-  // Transform OpenRouter SSE → our simpler {token}/{done} format
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
@@ -82,6 +81,10 @@ export default async function handler(req: Request) {
               if (content) {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: content })}\n\n`));
               }
+              // Forward usage data from the final chunk
+              if (parsed.usage) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ usage: parsed.usage })}\n\n`));
+              }
             } catch {
               // skip malformed chunks
             }
@@ -91,7 +94,6 @@ export default async function handler(req: Request) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`));
       }
 
-      // Ensure done is always sent
       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
       controller.close();
     },

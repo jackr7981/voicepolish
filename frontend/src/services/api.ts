@@ -1,8 +1,11 @@
+import { UsageData } from "../types";
+
 export async function polishStream(
   prompt: string,
   onToken: (token: string) => void,
   onDone: () => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  onUsage?: (usage: UsageData) => void
 ): Promise<void> {
   const res = await fetch("/api/polish", {
     method: "POST",
@@ -38,6 +41,7 @@ export async function polishStream(
       try {
         const data = JSON.parse(line.slice(6));
         if (data.token) onToken(data.token);
+        if (data.usage && onUsage) onUsage(data.usage);
         if (data.error) onError(data.error);
         if (data.done) {
           onDone();
@@ -54,6 +58,7 @@ export async function polishStream(
     try {
       const data = JSON.parse(buffer.trim().slice(6));
       if (data.token) onToken(data.token);
+      if (data.usage && onUsage) onUsage(data.usage);
       if (data.error) onError(data.error);
       if (data.done) { onDone(); return; }
     } catch {}

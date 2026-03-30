@@ -145,10 +145,11 @@ export function UnifiedTextDisplay({
             value={polishedText}
             onChange={(e) => onEditPolished(e.target.value)}
             className="w-full bg-transparent text-sm leading-relaxed text-slate-100 resize-none outline-none min-h-[120px] max-h-[400px] overflow-y-auto"
+            dir="auto"
             autoFocus
           />
         ) : (
-          <p className={`text-sm leading-relaxed whitespace-pre-wrap transition-opacity duration-300 ${
+          <p dir="auto" className={`text-sm leading-relaxed whitespace-pre-wrap transition-opacity duration-300 ${
             isPolishing && polishedText ? "text-slate-200" : ""
           }`}>
             {displayText || (

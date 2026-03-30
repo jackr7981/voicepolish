@@ -1,14 +1,16 @@
-import { PromptProfile, DictionaryEntry } from "../types";
+import { PromptProfile, DictionaryEntry, SUPPORTED_LANGUAGES } from "../types";
 
 export function buildPolishPrompt(
   rawText: string,
   profile: PromptProfile | null,
   dictionary: DictionaryEntry[],
-  formatAs: string
+  formatAs: string,
+  language: string = "en-US"
 ): string {
   const formatInstruction = getFormatInstruction(formatAs);
   const profileContext = profile ? buildProfileContext(profile) : "";
   const dictionaryContext = dictionary.length > 0 ? buildDictionaryContext(dictionary) : "";
+  const languageContext = language !== "en-US" ? buildLanguageContext(language) : "";
 
   return `You are an expert voice-to-text polishing engine, similar to Wispr Flow. You transform raw voice dictation into clean, natural, publication-ready text.
 
@@ -31,6 +33,8 @@ export function buildPolishPrompt(
 
 ## Format:
 ${formatInstruction}
+
+${languageContext}
 
 ${profileContext}
 
@@ -83,4 +87,10 @@ function buildDictionaryContext(entries: DictionaryEntry[]): string {
   const lines = ["## Personal Dictionary — Always use these exact spellings:"];
   entries.forEach((e) => lines.push(`- "${e.term}" → "${e.preferred_spelling}" (${e.category})`));
   return lines.join("\n");
+}
+
+function buildLanguageContext(langCode: string): string {
+  const lang = SUPPORTED_LANGUAGES.find((l) => l.code === langCode);
+  const name = lang ? lang.label : langCode;
+  return `## Language:\nThe dictation is in ${name}. Polish the text in ${name}.\nDo NOT translate to English. Preserve the original language throughout.`;
 }

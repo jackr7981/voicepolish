@@ -17,7 +17,7 @@ const SpeechRecognitionAPI =
     ? window.SpeechRecognition || window.webkitSpeechRecognition
     : null;
 
-export function useSpeechRecognition(): UseSpeechRecognitionReturn {
+export function useSpeechRecognition(lang: string = "en-US"): UseSpeechRecognitionReturn {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [duration, setDuration] = useState(0);
@@ -51,7 +51,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     const recognition = new SpeechRecognitionAPI!();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = "en-US";
+    recognition.lang = lang;
 
     let finalTranscript = "";
 
@@ -98,7 +98,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
 
     // Start initial silence timer
     resetSilenceTimer();
-  }, [isSupported, resetSilenceTimer, clearSilenceTimer]);
+  }, [isSupported, lang, resetSilenceTimer, clearSilenceTimer]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {

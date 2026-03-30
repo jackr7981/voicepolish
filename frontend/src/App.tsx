@@ -5,6 +5,7 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { DictionaryManager } from "./components/DictionaryManager";
 import { ProfileManager } from "./components/ProfileManager";
 import { HistoryPanel } from "./components/HistoryPanel";
+import { UsageIndicator } from "./components/UsageIndicator";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { usePolish } from "./hooks/usePolish";
 import { buildPolishPrompt } from "./lib/prompt";
@@ -14,10 +15,12 @@ import { PromptProfile, DictionaryEntry } from "./types";
 type FormatAs = "auto" | "paragraph" | "bullets" | "numbered";
 
 function App() {
+  const [language, setLanguage] = useState<string>(() => localStorage.getItem("vp_language") || "en-US");
+
   const {
     isListening, transcript, startListening, stopListening,
     resetTranscript, isSupported, duration,
-  } = useSpeechRecognition();
+  } = useSpeechRecognition(language);
 
   const {
     isPolishing, polishedText, error, polish, reset,
@@ -36,6 +39,7 @@ function App() {
   // Persist to localStorage on change
   useEffect(() => { saveProfiles(profiles); }, [profiles]);
   useEffect(() => { saveDictionary(dictionary); }, [dictionary]);
+  useEffect(() => { localStorage.setItem("vp_language", language); }, [language]);
 
   // Dictionary callbacks
   const addDictEntry = useCallback((entry: DictionaryEntry) => {
@@ -68,9 +72,9 @@ function App() {
   // Build prompt and polish
   const doPolish = useCallback((rawText: string) => {
     const profile = profiles.find((p) => p.id === activeProfileId) ?? null;
-    const prompt = buildPolishPrompt(rawText, profile, dictionary, formatAs);
+    const prompt = buildPolishPrompt(rawText, profile, dictionary, formatAs, language);
     polish(prompt, activeProfileId);
-  }, [profiles, activeProfileId, dictionary, formatAs, polish]);
+  }, [profiles, activeProfileId, dictionary, formatAs, language, polish]);
 
   // Use refs to avoid stale closures in auto-polish
   const transcriptRef = useRef(transcript);
@@ -137,6 +141,8 @@ function App() {
           setActiveProfileId={setActiveProfileId}
           formatAs={formatAs}
           setFormatAs={setFormatAs}
+          language={language}
+          setLanguage={setLanguage}
         />
 
         <UnifiedTextDisplay
@@ -180,6 +186,8 @@ function App() {
             </button>
           )}
         </div>
+
+        <UsageIndicator />
 
         <div className="w-full space-y-2 mt-4">
           <HistoryPanel history={history} />

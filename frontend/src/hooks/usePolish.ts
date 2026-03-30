@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { polishStream } from "../services/api";
 import { HistoryEntry } from "../types";
+import { recordUsage } from "../lib/usage";
 
 const MAX_HISTORY = 10;
 
@@ -43,6 +44,9 @@ export function usePolish() {
         (err) => {
           setError(err);
           setIsPolishing(false);
+        },
+        (usage) => {
+          recordUsage(usage);
         }
       );
     } catch (err) {
