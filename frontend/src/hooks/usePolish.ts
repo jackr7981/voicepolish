@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { polishTextStream } from "../services/api";
+import { polishStream } from "../services/api";
 import { HistoryEntry } from "../types";
 
 const MAX_HISTORY = 10;
@@ -9,27 +9,19 @@ export function usePolish() {
   const [streamedText, setStreamedText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1); // -1 = current
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const accumulatorRef = useRef("");
 
-  const polish = useCallback(async (
-    rawText: string,
-    profileId: number | null = null,
-    formatAs: "auto" | "paragraph" | "bullets" | "numbered" = "auto"
-  ) => {
-    if (!rawText.trim()) return;
+  const polish = useCallback(async (prompt: string, profileId: string | null) => {
+    if (!prompt.trim()) return;
     setIsPolishing(true);
     setError(null);
     setStreamedText("");
     accumulatorRef.current = "";
 
     try {
-      await polishTextStream(
-        {
-          raw_text: rawText,
-          profile_id: profileId,
-          format_as: formatAs,
-        },
+      await polishStream(
+        prompt,
         (token) => {
           accumulatorRef.current += token;
           setStreamedText(accumulatorRef.current);
@@ -38,7 +30,7 @@ export function usePolish() {
           const finalText = accumulatorRef.current;
           setHistory((prev) => {
             const entry: HistoryEntry = {
-              raw: rawText,
+              raw: prompt,
               polished: finalText,
               profileId,
               timestamp: Date.now(),

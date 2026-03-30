@@ -4,8 +4,8 @@ type FormatAs = "auto" | "paragraph" | "bullets" | "numbered";
 
 interface SettingsPanelProps {
   profiles: PromptProfile[];
-  activeProfileId: number | null;
-  setActiveProfileId: (id: number | null) => void;
+  activeProfileId: string | null;
+  setActiveProfileId: (id: string | null) => void;
   formatAs: FormatAs;
   setFormatAs: (f: FormatAs) => void;
 }
@@ -17,7 +17,7 @@ export function SettingsPanel({ profiles, activeProfileId, setActiveProfileId, f
         <label className="text-xs text-slate-400 block mb-1">Profile</label>
         <select
           value={activeProfileId ?? ""}
-          onChange={(e) => setActiveProfileId(e.target.value ? Number(e.target.value) : null)}
+          onChange={(e) => setActiveProfileId(e.target.value || null)}
           className="bg-slate-700 text-sm rounded px-3 py-2 text-white"
         >
           {profiles.map((p) => (

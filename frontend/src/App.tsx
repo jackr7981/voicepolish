@@ -7,8 +7,9 @@ import { ProfileManager } from "./components/ProfileManager";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { usePolish } from "./hooks/usePolish";
-import { getProfiles } from "./services/api";
-import { PromptProfile } from "./types";
+import { buildPolishPrompt } from "./lib/prompt";
+import { loadProfiles, saveProfiles, loadDictionary, saveDictionary } from "./lib/storage";
+import { PromptProfile, DictionaryEntry } from "./types";
 
 type FormatAs = "auto" | "paragraph" | "bullets" | "numbered";
 
@@ -23,46 +24,68 @@ function App() {
     undo, redo, canUndo, canRedo, setEditedText, history,
   } = usePolish();
 
-  const [profiles, setProfiles] = useState<PromptProfile[]>([]);
-  const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
+  const [profiles, setProfiles] = useState<PromptProfile[]>(() => loadProfiles());
+  const [dictionary, setDictionary] = useState<DictionaryEntry[]>(() => loadDictionary());
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(() => {
+    const p = loadProfiles();
+    const def = p.find((x) => x.is_default);
+    return def?.id ?? p[0]?.id ?? null;
+  });
   const [formatAs, setFormatAs] = useState<FormatAs>("auto");
 
-  const loadProfiles = useCallback(async () => {
-    try {
-      const data = await getProfiles();
-      setProfiles(data);
-      setActiveProfileId((prev) => {
-        if (prev === null && data.length > 0) {
-          const defaultProfile = data.find((p) => p.is_default);
-          return defaultProfile?.id ?? data[0].id ?? null;
-        }
-        return prev;
-      });
-    } catch (err) {
-      console.error("Failed to load profiles:", err);
-    }
+  // Persist to localStorage on change
+  useEffect(() => { saveProfiles(profiles); }, [profiles]);
+  useEffect(() => { saveDictionary(dictionary); }, [dictionary]);
+
+  // Dictionary callbacks
+  const addDictEntry = useCallback((entry: DictionaryEntry) => {
+    setDictionary((prev) => {
+      const exists = prev.findIndex((e) => e.term === entry.term);
+      if (exists >= 0) {
+        const updated = [...prev];
+        updated[exists] = entry;
+        return updated;
+      }
+      return [...prev, entry];
+    });
   }, []);
 
-  useEffect(() => {
-    loadProfiles();
-  }, [loadProfiles]);
+  const deleteDictEntry = useCallback((term: string) => {
+    setDictionary((prev) => prev.filter((e) => e.term !== term));
+  }, []);
 
-  // Use refs to avoid stale closures in the auto-polish effect
+  // Profile callbacks
+  const addProfile = useCallback((profile: Omit<PromptProfile, "id">) => {
+    const newProfile: PromptProfile = { ...profile, id: crypto.randomUUID() };
+    setProfiles((prev) => [...prev, newProfile]);
+  }, []);
+
+  const deleteProfile = useCallback((id: string) => {
+    setProfiles((prev) => prev.filter((p) => p.id !== id || p.is_default));
+    setActiveProfileId((prev) => (prev === id ? profiles.find((p) => p.is_default)?.id ?? null : prev));
+  }, [profiles]);
+
+  // Build prompt and polish
+  const doPolish = useCallback((rawText: string) => {
+    const profile = profiles.find((p) => p.id === activeProfileId) ?? null;
+    const prompt = buildPolishPrompt(rawText, profile, dictionary, formatAs);
+    polish(prompt, activeProfileId);
+  }, [profiles, activeProfileId, dictionary, formatAs, polish]);
+
+  // Use refs to avoid stale closures in auto-polish
   const transcriptRef = useRef(transcript);
-  const activeProfileIdRef = useRef(activeProfileId);
-  const formatAsRef = useRef(formatAs);
+  const doPolishRef = useRef(doPolish);
   transcriptRef.current = transcript;
-  activeProfileIdRef.current = activeProfileId;
-  formatAsRef.current = formatAs;
+  doPolishRef.current = doPolish;
 
   // Auto-polish when mic stops
   const prevListeningRef = useRef(isListening);
   useEffect(() => {
     if (prevListeningRef.current && !isListening && transcriptRef.current.trim()) {
-      polish(transcriptRef.current, activeProfileIdRef.current, formatAsRef.current);
+      doPolishRef.current(transcriptRef.current);
     }
     prevListeningRef.current = isListening;
-  }, [isListening, polish]);
+  }, [isListening]);
 
   // Keyboard shortcut: Space to toggle recording
   useEffect(() => {
@@ -73,11 +96,8 @@ function App() {
       if (target.isContentEditable) return;
       if (e.code === "Space") {
         e.preventDefault();
-        if (isListening) {
-          stopListening();
-        } else {
-          startListening();
-        }
+        if (isListening) stopListening();
+        else startListening();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -135,7 +155,7 @@ function App() {
           <div className="w-full text-center">
             <p className="text-red-400 text-sm">{error}</p>
             <button
-              onClick={() => polish(transcript, activeProfileId, formatAs)}
+              onClick={() => doPolish(transcript)}
               className="text-xs text-sky-400 hover:text-sky-300 underline mt-1"
             >
               Retry
@@ -143,29 +163,19 @@ function App() {
           </div>
         )}
 
-        {/* Action buttons */}
         <div className="flex gap-2 justify-center">
           {polishedText && !isListening && !isPolishing && (
-            <button
-              onClick={handleNewDictation}
-              className="bg-sky-500 hover:bg-sky-400 text-white px-5 py-2 rounded-lg text-sm font-medium transition"
-            >
+            <button onClick={handleNewDictation} className="bg-sky-500 hover:bg-sky-400 text-white px-5 py-2 rounded-lg text-sm font-medium transition">
               New Dictation
             </button>
           )}
           {(transcript || polishedText) && !isListening && (
-            <button
-              onClick={handleReset}
-              className="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2 rounded-lg text-sm font-medium transition"
-            >
+            <button onClick={handleReset} className="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2 rounded-lg text-sm font-medium transition">
               Clear
             </button>
           )}
           {polishedText && !isListening && !isPolishing && (
-            <button
-              onClick={() => polish(transcript, activeProfileId, formatAs)}
-              className="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2 rounded-lg text-sm font-medium transition"
-            >
+            <button onClick={() => doPolish(transcript)} className="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2 rounded-lg text-sm font-medium transition">
               Re-polish
             </button>
           )}
@@ -173,8 +183,16 @@ function App() {
 
         <div className="w-full space-y-2 mt-4">
           <HistoryPanel history={history} />
-          <ProfileManager onProfilesChange={loadProfiles} />
-          <DictionaryManager />
+          <ProfileManager
+            profiles={profiles}
+            onAdd={addProfile}
+            onDelete={deleteProfile}
+          />
+          <DictionaryManager
+            entries={dictionary}
+            onAdd={addDictEntry}
+            onDelete={deleteDictEntry}
+          />
         </div>
       </div>
     </div>

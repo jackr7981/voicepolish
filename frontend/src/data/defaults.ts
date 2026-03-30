@@ -1,0 +1,76 @@
+import { PromptProfile } from "../types";
+
+export const DEFAULT_PROFILES: PromptProfile[] = [
+  {
+    id: "general",
+    name: "general",
+    description: "Everyday writing — emails, notes, messages",
+    rules: [
+      "Clean up grammar, punctuation, and capitalization",
+      "Remove filler words: um, uh, like, you know, basically, so yeah",
+      "Keep the speaker's natural voice and tone",
+      "Use professional but approachable language",
+      "Break long run-on sentences into readable ones",
+    ],
+    is_default: true,
+  },
+  {
+    id: "coding",
+    name: "coding",
+    description: "Vibe coding — prompts, docs, technical writing",
+    rules: [
+      "Preserve ALL technical terms exactly: JSX, TSX, Node.js, npm, FastAPI, PostgreSQL, Supabase, React, useState, useEffect, async/await, API, REST, GraphQL, Docker, Redis, Celery, WebSocket, OAuth, JWT, CORS, env, CLI, SDK, IDE, VSCode, Cursor, Windsurf",
+      "Never autocorrect code terms: 'component' stays 'component' not 'compartment', 'hook' stays 'hook', 'state' stays 'state'",
+      "Format code references in backticks when they appear inline: `useState`, `npm install`, `docker-compose`",
+      "Preserve file extensions exactly: .jsx, .tsx, .py, .json, .env, .md, .yaml",
+      "Keep command-like phrases intact: 'npm run dev', 'pip install', 'git push'",
+      "If the speaker says 'dot' in a technical context, render it as a period: 'Node dot js' → 'Node.js'",
+      "Preserve camelCase and PascalCase: useState, onClick, FastAPI, NextAuth",
+    ],
+    is_default: false,
+  },
+  {
+    id: "maritime",
+    name: "maritime",
+    description: "Maritime/FSRU operations — reports, logs, procedures",
+    rules: [
+      "Use IMO standard maritime terminology throughout",
+      "Always capitalize: FSRU, LNG, BOG, CTMS, IAS, ISM, SOLAS, MARPOL, BMS, ESD, GVU, HP, LP, MSDS, PPE, SCBA, P&ID",
+      "Preserve vessel-specific terms: regasification, send-out, boil-off gas, cargo containment, membrane tank, moss type, heel quantity, sloshing",
+      "Use nautical conventions: port/starboard (not left/right), fore/aft, draft not draught",
+      "Format tank references consistently: Tank 1, Tank 2 (capitalized with number)",
+      "Preserve pressure/temperature units as spoken: barg, psig, °C, °F",
+      "Keep procedure reference numbers intact: SSM 04.24.00, FMM 06.07.01",
+      "Use 24-hour time format for log entries",
+    ],
+    is_default: false,
+  },
+  {
+    id: "email",
+    name: "email",
+    description: "Professional emails — formal, structured, polite",
+    rules: [
+      "Structure as a proper email: greeting, body paragraphs, sign-off",
+      "Use professional tone — no slang or contractions",
+      "If the speaker mentions a subject line, format it separately at the top",
+      "Keep paragraphs concise — max 3-4 sentences each",
+      "Add appropriate transitions between ideas",
+      "If the speaker rambles, distill to the core message while preserving intent",
+    ],
+    is_default: false,
+  },
+  {
+    id: "casual",
+    name: "casual",
+    description: "Casual chat — texts, DMs, social media",
+    rules: [
+      "Keep it relaxed and conversational",
+      "Contractions are fine: don't, can't, won't, I'm, it's",
+      "Don't over-formalize — match how people actually text",
+      "Light punctuation — no need for perfect semicolons or em-dashes",
+      "Keep sentences short and punchy",
+      "Preserve humor, slang, and informal expressions",
+    ],
+    is_default: false,
+  },
+];

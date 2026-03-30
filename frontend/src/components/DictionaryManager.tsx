@@ -1,51 +1,23 @@
-import { useState, useEffect } from "react";
-import { getDictionary, addDictionaryEntry, deleteDictionaryEntry } from "../services/api";
+import { useState } from "react";
 import { DictionaryEntry } from "../types";
 
-export function DictionaryManager() {
-  const [entries, setEntries] = useState<DictionaryEntry[]>([]);
+interface DictionaryManagerProps {
+  entries: DictionaryEntry[];
+  onAdd: (entry: DictionaryEntry) => void;
+  onDelete: (term: string) => void;
+}
+
+export function DictionaryManager({ entries, onAdd, onDelete }: DictionaryManagerProps) {
   const [term, setTerm] = useState("");
   const [spelling, setSpelling] = useState("");
   const [category, setCategory] = useState("general");
   const [isOpen, setIsOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadEntries = async () => {
-    try {
-      setError(null);
-      const data = await getDictionary();
-      setEntries(data);
-    } catch (err) {
-      setError("Failed to load dictionary");
-      console.error("Failed to load dictionary:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (isOpen) loadEntries();
-  }, [isOpen]);
-
-  const handleAdd = async () => {
+  const handleAdd = () => {
     if (!term || !spelling) return;
-    try {
-      setError(null);
-      await addDictionaryEntry({ term, preferred_spelling: spelling, category });
-      setTerm("");
-      setSpelling("");
-      loadEntries();
-    } catch (err) {
-      setError("Failed to add entry");
-    }
-  };
-
-  const handleDelete = async (t: string) => {
-    try {
-      setError(null);
-      await deleteDictionaryEntry(t);
-      loadEntries();
-    } catch (err) {
-      setError("Failed to delete entry");
-    }
+    onAdd({ term, preferred_spelling: spelling, category });
+    setTerm("");
+    setSpelling("");
   };
 
   return (
@@ -59,8 +31,6 @@ export function DictionaryManager() {
 
       {isOpen && (
         <div className="mt-3 bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-          {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
-
           <div className="flex gap-2 mb-4 flex-wrap">
             <input
               type="text"
@@ -104,7 +74,7 @@ export function DictionaryManager() {
                   <span className="text-slate-500 text-xs ml-2">({entry.category})</span>
                 </span>
                 <button
-                  onClick={() => handleDelete(entry.term)}
+                  onClick={() => onDelete(entry.term)}
                   className="text-red-400 hover:text-red-300 text-xs px-2 py-1 min-h-[32px]"
                 >
                   Remove
