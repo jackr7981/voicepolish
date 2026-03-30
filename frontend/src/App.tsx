@@ -5,6 +5,7 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { DictionaryManager } from "./components/DictionaryManager";
 import { ProfileManager } from "./components/ProfileManager";
 import { HistoryPanel } from "./components/HistoryPanel";
+import { DataInsights } from "./components/DataInsights";
 import { UsageIndicator } from "./components/UsageIndicator";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { usePolish } from "./hooks/usePolish";
@@ -69,18 +70,33 @@ function App() {
     setActiveProfileId((prev) => (prev === id ? profiles.find((p) => p.is_default)?.id ?? null : prev));
   }, [profiles]);
 
+  // WPM: word count / duration in minutes
+  const wpm = duration > 0
+    ? Math.round((transcript.trim().split(/\s+/).filter(Boolean).length / duration) * 60)
+    : 0;
+
   // Build prompt and polish
   const doPolish = useCallback((rawText: string) => {
     const profile = profiles.find((p) => p.id === activeProfileId) ?? null;
     const prompt = buildPolishPrompt(rawText, profile, dictionary, formatAs, language);
-    polish(prompt, activeProfileId);
+    polish(prompt, activeProfileId, {
+      rawTranscript: rawText,
+      duration: durationRef.current,
+      wpm: wpmRef.current,
+      language,
+      formatAs,
+    });
   }, [profiles, activeProfileId, dictionary, formatAs, language, polish]);
 
   // Use refs to avoid stale closures in auto-polish
   const transcriptRef = useRef(transcript);
   const doPolishRef = useRef(doPolish);
+  const durationRef = useRef(duration);
+  const wpmRef = useRef(wpm);
   transcriptRef.current = transcript;
   doPolishRef.current = doPolish;
+  durationRef.current = duration;
+  wpmRef.current = wpm;
 
   // Auto-polish when mic stops
   const prevListeningRef = useRef(isListening);
@@ -117,11 +133,6 @@ function App() {
     handleReset();
     startListening();
   }, [handleReset, startListening]);
-
-  // WPM: word count / duration in minutes
-  const wpm = duration > 0
-    ? Math.round((transcript.trim().split(/\s+/).filter(Boolean).length / duration) * 60)
-    : 0;
 
   return (
     <div className="min-h-screen p-4 max-w-2xl mx-auto">
@@ -198,6 +209,7 @@ function App() {
 
         <div className="w-full space-y-2 mt-4">
           <HistoryPanel history={history} />
+          <DataInsights profiles={profiles} />
           <ProfileManager
             profiles={profiles}
             onAdd={addProfile}

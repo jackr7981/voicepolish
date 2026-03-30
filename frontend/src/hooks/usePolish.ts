@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { polishStream } from "../services/api";
 import { HistoryEntry } from "../types";
 import { recordUsage } from "../lib/usage";
+import { recordDictation, DictationMetadata } from "../lib/dataBuckets";
 
 const MAX_HISTORY = 10;
 
@@ -13,7 +14,10 @@ export function usePolish() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const accumulatorRef = useRef("");
 
-  const polish = useCallback(async (prompt: string, profileId: string | null) => {
+  const metadataRef = useRef<DictationMetadata | null>(null);
+
+  const polish = useCallback(async (prompt: string, profileId: string | null, metadata?: DictationMetadata) => {
+    metadataRef.current = metadata ?? null;
     if (!prompt.trim()) return;
     setIsPolishing(true);
     setError(null);
@@ -39,6 +43,10 @@ export function usePolish() {
             return [entry, ...prev].slice(0, MAX_HISTORY);
           });
           setHistoryIndex(-1);
+          // Record to persistent data buckets
+          if (metadataRef.current) {
+            recordDictation(finalText, metadataRef.current, profileId);
+          }
           setIsPolishing(false);
         },
         (err) => {
