@@ -11,6 +11,7 @@ interface UnifiedTextDisplayProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  wpm: number;
 }
 
 function wordCount(text: string): number {
@@ -27,6 +28,7 @@ export function UnifiedTextDisplay({
   canRedo,
   onUndo,
   onRedo,
+  wpm,
 }: UnifiedTextDisplayProps) {
   const [showRaw, setShowRaw] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -92,9 +94,12 @@ export function UnifiedTextDisplay({
               </button>
             </div>
           )}
-          {/* Word count */}
+          {/* Word count + WPM */}
           {displayText && (
-            <span className="text-xs text-slate-500">{wordCount(displayText)} words</span>
+            <span className="text-xs text-slate-500">
+              {wordCount(displayText)} words
+              {wpm > 0 && !isListening && <span className="ml-1">· {wpm} wpm</span>}
+            </span>
           )}
           {/* Copy */}
           {displayText && !isEditing && <CopyButton text={displayText} />}

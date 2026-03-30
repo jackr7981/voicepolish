@@ -118,6 +118,11 @@ function App() {
     startListening();
   }, [handleReset, startListening]);
 
+  // WPM: word count / duration in minutes
+  const wpm = duration > 0
+    ? Math.round((transcript.trim().split(/\s+/).filter(Boolean).length / duration) * 60)
+    : 0;
+
   return (
     <div className="min-h-screen p-4 max-w-2xl mx-auto">
       <header className="text-center mb-8 pt-6">
@@ -133,6 +138,7 @@ function App() {
           onStop={stopListening}
           isSupported={isSupported}
           duration={duration}
+          wpm={wpm}
         />
 
         <SettingsPanel
@@ -155,6 +161,7 @@ function App() {
           canRedo={canRedo}
           onUndo={undo}
           onRedo={redo}
+          wpm={wpm}
         />
 
         {error && (

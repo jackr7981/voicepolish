@@ -5,6 +5,7 @@ interface VoiceRecorderProps {
   onStop: () => void;
   isSupported: boolean;
   duration: number;
+  wpm: number;
 }
 
 function formatDuration(seconds: number): string {
@@ -20,6 +21,7 @@ export function VoiceRecorder({
   onStop,
   isSupported,
   duration,
+  wpm,
 }: VoiceRecorderProps) {
   if (!isSupported) {
     return (
@@ -68,6 +70,9 @@ export function VoiceRecorder({
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
             <span className="text-sm text-red-400 font-mono">{formatDuration(duration)}</span>
+            {wpm > 0 && (
+              <span className="text-xs text-slate-400 font-mono">{wpm} wpm</span>
+            )}
             <span className="text-xs text-slate-500">tap or wait to stop</span>
           </div>
         ) : isPolishing ? (
