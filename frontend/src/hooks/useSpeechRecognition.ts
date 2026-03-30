@@ -7,15 +7,15 @@ interface UseSpeechRecognitionReturn {
   stopListening: () => void;
   resetTranscript: () => void;
   isSupported: boolean;
-  duration: number; // seconds recording
+  duration: number;
 }
 
-const SILENCE_TIMEOUT_MS = 3000; // auto-stop after 3s silence
+const SILENCE_TIMEOUT_MS = 5000; // auto-stop after 5s silence (longer for mobile)
 
-const SpeechRecognitionAPI =
-  typeof window !== "undefined"
-    ? window.SpeechRecognition || window.webkitSpeechRecognition
-    : null;
+function getSpeechRecognition(): (new () => SpeechRecognition) | null {
+  if (typeof window === "undefined") return null;
+  return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null;
+}
 
 export function useSpeechRecognition(lang: string = "en-US"): UseSpeechRecognitionReturn {
   const [isListening, setIsListening] = useState(false);
@@ -26,7 +26,8 @@ export function useSpeechRecognition(lang: string = "en-US"): UseSpeechRecogniti
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
 
-  const isSupported = !!SpeechRecognitionAPI;
+  // Check support lazily (not at module scope) for Safari compatibility
+  const isSupported = !!getSpeechRecognition();
 
   const clearSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) {
@@ -38,7 +39,6 @@ export function useSpeechRecognition(lang: string = "en-US"): UseSpeechRecogniti
   const resetSilenceTimer = useCallback(() => {
     clearSilenceTimer();
     silenceTimerRef.current = setTimeout(() => {
-      // Auto-stop on silence
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
@@ -46,9 +46,15 @@ export function useSpeechRecognition(lang: string = "en-US"): UseSpeechRecogniti
   }, [clearSilenceTimer]);
 
   const startListening = useCallback(() => {
-    if (!isSupported) return;
+    const SpeechRecognitionAPI = getSpeechRecognition();
+    if (!SpeechRecognitionAPI) return;
 
-    const recognition = new SpeechRecognitionAPI!();
+    // Stop any existing recognition first
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+    }
+
+    const recognition = new SpeechRecognitionAPI();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = lang;
@@ -66,14 +72,17 @@ export function useSpeechRecognition(lang: string = "en-US"): UseSpeechRecogniti
         }
       }
       setTranscript(finalTranscript + interim);
-      // Reset silence timer on every speech result
       resetSilenceTimer();
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error("Speech recognition error:", event.error);
-      setIsListening(false);
-      clearSilenceTimer();
+      // "not-allowed" means mic permission denied
+      // "aborted" means programmatic stop — not a real error
+      if (event.error !== "aborted") {
+        setIsListening(false);
+        clearSilenceTimer();
+      }
     };
 
     recognition.onend = () => {
@@ -86,23 +95,27 @@ export function useSpeechRecognition(lang: string = "en-US"): UseSpeechRecogniti
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-    setDuration(0);
-    startTimeRef.current = Date.now();
 
-    // Start duration counter
-    durationIntervalRef.current = setInterval(() => {
-      setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
-    }, 1000);
+    try {
+      recognition.start();
+      setIsListening(true);
+      setDuration(0);
+      startTimeRef.current = Date.now();
 
-    // Start initial silence timer
-    resetSilenceTimer();
-  }, [isSupported, lang, resetSilenceTimer, clearSilenceTimer]);
+      durationIntervalRef.current = setInterval(() => {
+        setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      }, 1000);
+
+      resetSilenceTimer();
+    } catch (err) {
+      console.error("Failed to start speech recognition:", err);
+      setIsListening(false);
+    }
+  }, [lang, resetSilenceTimer, clearSilenceTimer]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try { recognitionRef.current.stop(); } catch {}
       setIsListening(false);
       clearSilenceTimer();
       if (durationIntervalRef.current) {
@@ -117,12 +130,14 @@ export function useSpeechRecognition(lang: string = "en-US"): UseSpeechRecogniti
     setDuration(0);
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       clearSilenceTimer();
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
+      }
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch {}
       }
     };
   }, [clearSilenceTimer]);
