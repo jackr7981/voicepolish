@@ -1,5 +1,58 @@
 import { UsageData } from "../types";
 
+// --- Dictation persistence API ---
+
+export interface DictationPayload {
+  id: string;
+  rawText: string;
+  polishedText: string;
+  metadata: {
+    duration: number;
+    wpm: number;
+    language: string;
+    profileId: string | null;
+    formatAs: string;
+  };
+}
+
+export interface DictationRow {
+  id: string;
+  raw_text: string;
+  raw_word_count: number;
+  duration: number;
+  wpm: number;
+  language: string;
+  profile_id: string | null;
+  format_as: string;
+  created_at: string;
+  polished_text: string;
+  polished_word_count: number;
+}
+
+export async function saveDictation(payload: DictationPayload): Promise<void> {
+  try {
+    await fetch("/api/dictations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // Fire-and-forget — don't block UI
+  }
+}
+
+export async function fetchDictations(limit = 500): Promise<DictationRow[]> {
+  const res = await fetch(`/api/dictations?limit=${limit}`);
+  if (!res.ok) throw new Error("Failed to fetch dictations");
+  const json = await res.json();
+  return json.data ?? [];
+}
+
+export async function clearDictations(): Promise<void> {
+  const res = await fetch("/api/dictations", { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to clear dictations");
+}
+
 export async function polishStream(
   prompt: string,
   onToken: (token: string) => void,

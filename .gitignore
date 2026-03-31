@@ -27,3 +27,4 @@ frontend/dist/
 # Claude
 .claude/
 .vercel
+.env*.local

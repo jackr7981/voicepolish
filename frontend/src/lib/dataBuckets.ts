@@ -1,5 +1,7 @@
 // Persistent data buckets for raw dictation input and polished output.
-// Two separate localStorage stores, linked by shared UUID.
+// Dual-write: localStorage (fast cache) + Vercel Postgres via API (source of truth).
+
+import { saveDictation, fetchDictations, clearDictations, DictationRow } from "../services/api";
 
 const RAW_KEY = "vp_raw_bucket";
 const POLISHED_KEY = "vp_polished_bucket";
@@ -114,6 +116,20 @@ export function recordDictation(
 
   writeBucket(RAW_KEY, prune(rawBucket));
   writeBucket(POLISHED_KEY, prune(polishedBucket));
+
+  // Dual-write to Postgres (fire-and-forget)
+  saveDictation({
+    id,
+    rawText: metadata.rawTranscript,
+    polishedText,
+    metadata: {
+      duration: metadata.duration,
+      wpm: metadata.wpm,
+      language: metadata.language,
+      profileId,
+      formatAs: metadata.formatAs,
+    },
+  });
 }
 
 function mode<T>(items: T[]): T | null {
@@ -234,4 +250,68 @@ export function downloadFile(content: string, filename: string, mimeType: string
 export function clearBuckets(): void {
   localStorage.removeItem(RAW_KEY);
   localStorage.removeItem(POLISHED_KEY);
+  clearDictations().catch(() => {});
+}
+
+// --- API-backed functions (Postgres as source of truth) ---
+
+export function computeStatsFromRows(rows: DictationRow[]): BucketStats {
+  const n = rows.length;
+  if (n === 0) {
+    return {
+      totalDictations: 0, avgWpm: 0, avgRawWordCount: 0,
+      avgPolishedWordCount: 0, totalRawWords: 0, totalPolishedWords: 0,
+      avgDuration: 0, mostUsedProfileId: null,
+      mostUsedLanguage: "en-US", oldestEntry: null, newestEntry: null,
+    };
+  }
+
+  const totalRawWords = rows.reduce((s, r) => s + r.raw_word_count, 0);
+  const totalPolishedWords = rows.reduce((s, r) => s + r.polished_word_count, 0);
+  const totalDuration = rows.reduce((s, r) => s + r.duration, 0);
+  const wpmRows = rows.filter((r) => r.wpm > 0);
+  const totalWpm = wpmRows.reduce((s, r) => s + r.wpm, 0);
+
+  return {
+    totalDictations: n,
+    avgWpm: wpmRows.length > 0 ? Math.round(totalWpm / wpmRows.length) : 0,
+    avgRawWordCount: Math.round(totalRawWords / n),
+    avgPolishedWordCount: Math.round(totalPolishedWords / n),
+    totalRawWords,
+    totalPolishedWords,
+    avgDuration: Math.round(totalDuration / n),
+    mostUsedProfileId: mode(rows.map((r) => r.profile_id)),
+    mostUsedLanguage: mode(rows.map((r) => r.language)) ?? "en-US",
+    oldestEntry: rows.length > 0 ? new Date(rows[rows.length - 1].created_at).getTime() : null,
+    newestEntry: rows.length > 0 ? new Date(rows[0].created_at).getTime() : null,
+  };
+}
+
+export function exportRowsAsJson(rows: DictationRow[]): string {
+  return JSON.stringify(rows, null, 2);
+}
+
+export function exportRowsAsCsv(rows: DictationRow[]): string {
+  const headers = "id,rawText,rawWordCount,polishedText,polishedWordCount,timestamp,duration,wpm,language,profileId,formatAs";
+  const csvRows = rows.map((r) =>
+    [
+      r.id,
+      escapeCsv(r.raw_text),
+      r.raw_word_count,
+      escapeCsv(r.polished_text),
+      r.polished_word_count,
+      r.created_at,
+      r.duration,
+      r.wpm,
+      r.language,
+      r.profile_id ?? "",
+      r.format_as,
+    ].join(",")
+  );
+  return [headers, ...csvRows].join("\n");
+}
+
+export async function fetchAndComputeStats(): Promise<{ stats: BucketStats; rows: DictationRow[] }> {
+  const rows = await fetchDictations();
+  return { stats: computeStatsFromRows(rows), rows };
 }

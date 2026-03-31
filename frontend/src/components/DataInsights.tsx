@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { PromptProfile } from "../types";
+import { DictationRow } from "../services/api";
 import {
-  getStats,
-  getBucketSizes,
-  exportAsJson,
-  exportJoinedCsv,
+  fetchAndComputeStats,
+  exportRowsAsJson,
+  exportRowsAsCsv,
   downloadFile,
   clearBuckets,
   BucketStats,
@@ -23,16 +23,28 @@ function formatDuration(seconds: number): string {
 export function DataInsights({ profiles }: DataInsightsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [stats, setStats] = useState<BucketStats | null>(null);
-  const [entryCount, setEntryCount] = useState(0);
+  const [rows, setRows] = useState<DictationRow[]>([]);
+  const [loading, setLoading] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const fetched = useRef(false);
 
-  const refresh = () => {
-    setStats(getStats());
-    setEntryCount(getBucketSizes().raw);
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const result = await fetchAndComputeStats();
+      setStats(result.stats);
+      setRows(result.rows);
+    } catch {
+      // API failed — stats stay null
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
-    if (isOpen) refresh();
+    if (isOpen && !fetched.current) {
+      fetched.current = true;
+      refresh();
+    }
   }, [isOpen]);
 
   const profileName = (id: string | null) =>
@@ -44,23 +56,25 @@ export function DataInsights({ profiles }: DataInsightsProps) {
         onClick={() => setIsOpen(true)}
         className="text-sm text-sky-400 hover:text-sky-300 underline"
       >
-        Data Insights {entryCount > 0 || stats ? `(${entryCount || getBucketSizes().raw})` : ""}
+        Data Insights {stats ? `(${stats.totalDictations})` : ""}
       </button>
     );
   }
 
   const handleExportJson = () => {
-    downloadFile(exportAsJson(), "voicepolish-data.json", "application/json");
+    downloadFile(exportRowsAsJson(rows), "voicepolish-data.json", "application/json");
   };
 
   const handleExportCsv = () => {
-    downloadFile(exportJoinedCsv(), "voicepolish-data.csv", "text/csv");
+    downloadFile(exportRowsAsCsv(rows), "voicepolish-data.csv", "text/csv");
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
     clearBuckets();
-    refresh();
+    setStats(null);
+    setRows([]);
     setShowClearConfirm(false);
+    fetched.current = false;
   };
 
   return (
@@ -73,7 +87,9 @@ export function DataInsights({ profiles }: DataInsightsProps) {
       </button>
 
       <div className="mt-3 bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-        {!stats || stats.totalDictations === 0 ? (
+        {loading ? (
+          <p className="text-slate-500 text-sm animate-pulse">Loading data...</p>
+        ) : !stats || stats.totalDictations === 0 ? (
           <p className="text-slate-500 text-sm italic">
             No data recorded yet. Start dictating to see insights.
           </p>
@@ -116,6 +132,13 @@ export function DataInsights({ profiles }: DataInsightsProps) {
             className="text-xs px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 transition disabled:opacity-30 disabled:cursor-not-allowed"
           >
             Export CSV
+          </button>
+          <button
+            onClick={() => { fetched.current = false; refresh(); }}
+            disabled={loading}
+            className="text-xs px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 transition disabled:opacity-30"
+          >
+            Refresh
           </button>
           <div className="ml-auto">
             {showClearConfirm ? (
