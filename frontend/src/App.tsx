@@ -6,6 +6,7 @@ import { DictionaryManager } from "./components/DictionaryManager";
 import { ProfileManager } from "./components/ProfileManager";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { DataInsights } from "./components/DataInsights";
+import { DictationSidebar } from "./components/DictationSidebar";
 import { UsageIndicator } from "./components/UsageIndicator";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { usePolish } from "./hooks/usePolish";
@@ -36,6 +37,8 @@ function App() {
     return def?.id ?? p[0]?.id ?? null;
   });
   const [formatAs, setFormatAs] = useState<FormatAs>("auto");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarRefresh, setSidebarRefresh] = useState(0);
 
   // Persist to localStorage on change
   useEffect(() => { saveProfiles(profiles); }, [profiles]);
@@ -107,6 +110,15 @@ function App() {
     prevListeningRef.current = isListening;
   }, [isListening]);
 
+  // Refresh sidebar when polish completes
+  const prevPolishingRef = useRef(isPolishing);
+  useEffect(() => {
+    if (prevPolishingRef.current && !isPolishing && polishedText) {
+      setSidebarRefresh((n) => n + 1);
+    }
+    prevPolishingRef.current = isPolishing;
+  }, [isPolishing, polishedText]);
+
   // Keyboard shortcut: Space to toggle recording
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -135,8 +147,25 @@ function App() {
   }, [handleReset, startListening]);
 
   return (
+    <>
+    <DictationSidebar
+      isOpen={sidebarOpen}
+      onToggle={() => setSidebarOpen(!sidebarOpen)}
+      refreshTrigger={sidebarRefresh}
+    />
+
     <div className="min-h-screen p-4 max-w-2xl mx-auto">
-      <header className="text-center mb-8 pt-6">
+      <header className="text-center mb-8 pt-6 relative">
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="absolute left-0 top-6 p-2 text-slate-400 hover:text-sky-400 transition"
+          aria-label="Toggle history sidebar"
+          title="Dictation History"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
         <h1 className="text-2xl font-bold text-sky-400">VoicePolish</h1>
         <p className="text-slate-400 text-sm mt-1">Speak naturally. Get polished text.</p>
       </header>
@@ -223,6 +252,7 @@ function App() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
